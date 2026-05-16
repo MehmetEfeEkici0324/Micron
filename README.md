@@ -1,6 +1,6 @@
-# 🤖 MICRON — Kişisel JARVIS Asistanı
+# 🤖 MICRON — Kişisel Yapay Zeka Asistanı
 
-> Iron Man'in JARVIS'i gibi kişisel yapay zeka asistanınız.  
+> Kişiselleştirilmiş yapay zeka asistanı olarak size yardımcı olur 
 > Ollama LLM + Ses Tanıma + Akıllı Komut Sistemi
 
 ---
@@ -267,8 +267,8 @@ if "proje oluştur" in text_lower:
 ---
 
 ## 📝 Lisans
-MIT — Kişisel kullanım için özgürce kullanın.
+Mehmet Efe Ekici — Kişisel kullanım için özgürce kullanın.
 
 ---
 
-*MICRON — Sizin JARVIS'iniz* 🤖
+*MICRON* 🤖
