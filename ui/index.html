@@ -560,17 +560,6 @@
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="panel">
-    <div class="panel-title">⚡ Hızlı Komutlar</div>
-    <button class="quick-btn" onclick="sendQuick('Google\'ı aç')"><span class="icon">🌐</span>Google</button>
-    <button class="quick-btn" onclick="sendQuick('YouTube\'u aç')"><span class="icon">▶️</span>YouTube</button>
-    <button class="quick-btn" onclick="sendQuick('GitHub\'ı aç')"><span class="icon">🐙</span>GitHub</button>
-    <button class="quick-btn" onclick="sendQuick('VS Code\'u aç')"><span class="icon">💻</span>VS Code</button>
-    <button class="quick-btn" onclick="sendQuick('Gmail\'i aç')"><span class="icon">📧</span>Gmail</button>
-    <button class="quick-btn" onclick="sendQuick('Spotify\'ı aç')"><span class="icon">🎵</span>Spotify</button>
-    <button class="quick-btn" onclick="sendQuick('ChatGPT\'yi aç')"><span class="icon">🤖</span>ChatGPT</button>
-  </div>
-
-  <div class="panel">
     <div class="panel-title">🧠 Ollama Model</div>
     <select class="model-select" id="model-select" onchange="setModel(this.value)">
       <option value="llama3">llama3</option>
@@ -591,7 +580,7 @@
       <div class="toggle-sw" id="voice-toggle" onclick="toggleVoice()"></div>
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-top:6px;font-family:var(--mono)">
-      Wake word: <span style="color:var(--cyan)">"micron"</span>
+      Wake word: <span style="color:var(--cyan)" id="wake-word-label">"micron"</span>
     </div>
     <div style="font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.5">
       Örnek: <em style="color:var(--cyan)">"Micron, Google'ı aç"</em>
@@ -675,9 +664,22 @@ let startTime = Date.now();
 let voiceActive = false;
 let recognition = null;
 let listeningForCommand = false;
+let suppressNextSpeechError = false;
+let speechRestartTimer = null;
+let speechNetworkFailures = 0;
+let appConfig = {
+  wake_word: 'micron',
+  language: 'tr-TR',
+  voice_rate: 0.86,
+  voice_pitch: 0.72,
+  preferred_voice_keywords: ['male', 'erkek', 'tolga', 'microsoft', 'tr'],
+  speech_continuous: true,
+  speech_interim_results: true,
+  speech_max_alternatives: 3,
+  speech_command_without_wake_word: true
+};
 
 const API = window.location.origin + '/api';
-const WAKE_WORD = 'micron';
 
 // === CLOCK ===
 function updateClock() {
@@ -702,6 +704,11 @@ async function checkStatus() {
   try {
     const r = await fetch(`${API}/status`);
     const d = await r.json();
+    if (d.config) applyConfig(d.config);
+    if (d.model) {
+      document.getElementById('stat-model').textContent = d.model;
+      document.getElementById('model-select').value = d.model;
+    }
     
     const ollamaDot = document.getElementById('ollama-dot');
     const ollamaStatus = document.getElementById('ollama-status');
@@ -713,7 +720,7 @@ async function checkStatus() {
       // Modelleri güncelle
       const sel = document.getElementById('model-select');
       if (d.available_models && d.available_models.length > 0) {
-        const current = sel.value;
+        const current = d.model || sel.value;
         sel.innerHTML = d.available_models.map(m => 
           `<option value="${m}" ${m===current?'selected':''}>${m}</option>`
         ).join('');
@@ -729,6 +736,19 @@ async function checkStatus() {
 }
 setInterval(checkStatus, 5000);
 checkStatus();
+
+async function loadConfig() {
+  try {
+    const r = await fetch(`${API}/config`);
+    applyConfig(await r.json());
+  } catch(e) {}
+}
+
+function applyConfig(cfg) {
+  appConfig = {...appConfig, ...cfg};
+  const label = document.getElementById('wake-word-label');
+  if (label) label.textContent = `"${appConfig.wake_word}"`;
+}
 
 // === CHAT ===
 function appendMsg(role, text, action) {
@@ -757,6 +777,8 @@ function appendMsg(role, text, action) {
     const icons = {
       'open_web': '🌐 Web açıldı',
       'open_app': '💻 Uygulama açıldı',
+      'open_terminal': '💻 Terminal açıldı',
+      'learn_command': '🧠 Komut öğrenildi',
       'run_command': '⚡ Komut çalıştırıldı',
       'search': '🔍 Arama yapıldı',
     };
@@ -871,11 +893,6 @@ function localMatch(text) {
   return {action: 'answer', response: 'Sunucuya bağlanılamıyor. Ollama çalıştığından emin olun.'};
 }
 
-function sendQuick(cmd) {
-  document.getElementById('cmd-input').value = cmd;
-  sendCommand();
-}
-
 async function setModel(model) {
   document.getElementById('stat-model').textContent = model;
   try {
@@ -903,6 +920,20 @@ function addLog(text) {
   while (container.children.length > 20) container.removeChild(container.lastChild);
 }
 
+function setVoiceToggle(active) {
+  voiceActive = active;
+  const toggle = document.getElementById('voice-toggle');
+  if (toggle) toggle.className = 'toggle-sw' + (voiceActive ? ' active' : '');
+}
+
+function startRecognitionDelayed(delay = 250) {
+  clearTimeout(speechRestartTimer);
+  speechRestartTimer = setTimeout(() => {
+    if (!voiceActive || !recognition) return;
+    try { recognition.start(); } catch(e) {}
+  }, delay);
+}
+
 // === VOICE (Web Speech API) ===
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -912,53 +943,82 @@ function initSpeechRecognition() {
   }
 
   const r = new SpeechRecognition();
-  r.lang = 'tr-TR';
-  r.continuous = true;
-  r.interimResults = false;
-  r.maxAlternatives = 1;
+  r.lang = appConfig.language || 'tr-TR';
+  r.continuous = Boolean(appConfig.speech_continuous);
+  r.interimResults = Boolean(appConfig.speech_interim_results);
+  r.maxAlternatives = Number(appConfig.speech_max_alternatives || 3);
 
   r.onresult = (e) => {
-    const text = e.results[e.results.length-1][0].transcript.toLowerCase().trim();
-    addLog(`🎤 Duyuldu: ${text}`);
+    const result = e.results[e.results.length-1];
+    if (!result.isFinal) return;
 
-    if (text.includes(WAKE_WORD)) {
-      const cmd = text.replace(WAKE_WORD, '').replace(/[,!.?]/g,'').trim();
+    const alternatives = Array.from(result).map(item => item.transcript.toLowerCase().trim());
+    const text = alternatives[0] || '';
+    const normalized = normalizeSpeech(text);
+    const wakeWord = normalizeSpeech(appConfig.wake_word || 'micron');
+    addLog(`Duyuldu: ${text}`);
+
+    if (normalized.includes(wakeWord)) {
+      const cmd = normalized.replace(wakeWord, '').replace(/[,!.?]/g,'').trim();
       if (cmd.length > 1) {
         document.getElementById('cmd-input').value = cmd;
         sendCommand();
       } else {
         speak('Evet, dinliyorum.');
       }
+    } else if (appConfig.speech_command_without_wake_word && normalized.length > 2) {
+      document.getElementById('cmd-input').value = normalized;
+      sendCommand();
     }
   };
 
   r.onerror = (e) => {
-    if (e.error !== 'no-speech') {
+    if (suppressNextSpeechError && e.error === 'aborted') {
+      suppressNextSpeechError = false;
+      return;
+    }
+
+    if (e.error === 'network') {
+      speechNetworkFailures++;
+      addLog('Ses hatası: network - Chrome/Edge ses servisine ulaşamıyor');
+      if (speechNetworkFailures >= 2) {
+        setVoiceToggle(false);
+        appendMsg('micron', 'Ses tanıma servisine ulaşılamıyor. İnternet bağlantısını, mikrofon iznini ve Chrome/Edge ayarlarını kontrol edin. Yazılı komutlar çalışmaya devam eder.', null);
+        return;
+      }
+      startRecognitionDelayed(2000);
+    } else if (e.error === 'no-speech') {
+      addLog('Ses algılanmadı, tekrar dinleniyor');
+      startRecognitionDelayed(600);
+    } else if (e.error === 'aborted') {
+      addLog('Ses dinleme yeniden başlatılıyor');
+      startRecognitionDelayed(600);
+    } else {
       addLog(`Ses hatası: ${e.error}`);
-      setTimeout(() => { if (voiceActive && recognition) recognition.start(); }, 1000);
+      startRecognitionDelayed(1200);
     }
   };
 
   r.onend = () => {
-    if (voiceActive) setTimeout(() => { try{recognition.start()}catch(e){} }, 200);
+    if (voiceActive) startRecognitionDelayed(300);
   };
 
   return r;
 }
 
 function toggleVoice() {
-  const toggle = document.getElementById('voice-toggle');
-  voiceActive = !voiceActive;
-  toggle.className = 'toggle-sw' + (voiceActive ? ' active' : '');
+  setVoiceToggle(!voiceActive);
 
   if (voiceActive) {
+    speechNetworkFailures = 0;
     recognition = initSpeechRecognition();
     if (recognition) {
-      recognition.start();
-      addLog('Ses dinleme AÇIK — "Micron, ..." deyin');
-      appendMsg('micron', 'Ses sistemi aktif. "Micron, ..." diyerek komut verebilirsiniz.', null);
+      startRecognitionDelayed(0);
+      addLog(`Ses dinleme AÇIK - "${appConfig.wake_word}, ..." deyin`);
+      appendMsg('micron', `Ses sistemi aktif. "${appConfig.wake_word}, ..." diyebilir veya mikrofona basıp direkt komut verebilirsiniz.`, null);
     }
   } else {
+    clearTimeout(speechRestartTimer);
     if (recognition) { recognition.stop(); recognition = null; }
     addLog('Ses dinleme KAPALI');
   }
@@ -973,19 +1033,21 @@ function toggleMic() {
     if (!SpeechRecognition) return;
     
     const r = new SpeechRecognition();
-    r.lang = 'tr-TR';
+    r.lang = appConfig.language || 'tr-TR';
     r.continuous = false;
-    r.interimResults = false;
+    r.interimResults = true;
+    r.maxAlternatives = Number(appConfig.speech_max_alternatives || 3);
     
     listeningForCommand = true;
     btn.className = 'mic-btn listening';
     btn.textContent = '⏹';
-    addLog('🎤 Mikrofon aktif...');
+    addLog('Mikrofon aktif...');
     
     r.onresult = (e) => {
-      const text = e.results[0][0].transcript;
+      const result = e.results[e.results.length - 1];
+      const text = result[0].transcript;
       document.getElementById('cmd-input').value = text;
-      addLog(`🎤 ${text}`);
+      if (result.isFinal) addLog(`Duyuldu: ${text}`);
     };
     
     r.onend = () => {
@@ -997,10 +1059,16 @@ function toggleMic() {
       if (val) setTimeout(sendCommand, 300);
     };
     
-    r.onerror = () => {
+    r.onerror = (e) => {
       listeningForCommand = false;
       btn.className = 'mic-btn';
       btn.textContent = '🎤';
+      if (e.error === 'network') {
+        addLog('Mikrofon hatası: network - tarayıcı ses servisine bağlanamadı');
+        appendMsg('micron', 'Mikrofon servisi ağa bağlanamadı. Chrome/Edge kullanın, internet bağlantısını ve mikrofon iznini kontrol edin.', null);
+      } else if (e.error !== 'aborted') {
+        addLog(`Mikrofon hatası: ${e.error}`);
+      }
     };
     
     r.start();
@@ -1010,17 +1078,74 @@ function toggleMic() {
 // TTS
 function speak(text) {
   if (!window.speechSynthesis) return;
+  const cleanText = sanitizeForSpeech(text);
+  if (!cleanText) return;
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'tr-TR';
-  u.rate = 0.95;
-  u.pitch = 1.0;
+  if (recognition) {
+    suppressNextSpeechError = true;
+    clearTimeout(speechRestartTimer);
+    try { recognition.stop(); } catch(e) {}
+  }
+
+  const u = new SpeechSynthesisUtterance(cleanText);
+  u.lang = appConfig.language || 'tr-TR';
+  u.rate = Number(appConfig.voice_rate || 0.95);
+  u.pitch = Number(appConfig.voice_pitch || 1.0);
   
-  const voices = window.speechSynthesis.getVoices();
-  const trVoice = voices.find(v => v.lang.startsWith('tr'));
-  if (trVoice) u.voice = trVoice;
+  const selectedVoice = selectJarvisVoice();
+  if (selectedVoice) u.voice = selectedVoice;
   
+  u.onend = () => {
+    suppressNextSpeechError = false;
+    if (voiceActive && recognition) startRecognitionDelayed(350);
+  };
+
+  u.onerror = () => {
+    suppressNextSpeechError = false;
+    if (voiceActive && recognition) startRecognitionDelayed(350);
+  };
+
   window.speechSynthesis.speak(u);
+}
+
+function selectJarvisVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const keywords = (appConfig.preferred_voice_keywords || [])
+    .map(k => String(k).toLowerCase())
+    .filter(Boolean);
+
+  const scored = voices.map(voice => {
+    const haystack = `${voice.name} ${voice.lang} ${voice.voiceURI}`.toLowerCase();
+    let score = 0;
+    if (voice.lang && voice.lang.toLowerCase().startsWith('tr')) score += 40;
+    if (haystack.includes('male') || haystack.includes('erkek') || haystack.includes('tolga')) score += 30;
+    if (haystack.includes('microsoft')) score += 10;
+    for (const keyword of keywords) {
+      if (haystack.includes(keyword)) score += 8;
+    }
+    return {voice, score};
+  }).sort((a, b) => b.score - a.score);
+
+  return scored[0]?.voice || voices[0];
+}
+
+function normalizeSpeech(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/mikron|micro|micron\.|micron,/g, appConfig.wake_word || 'micron')
+    .replace(/[’']/g, '')
+    .trim();
+}
+
+function sanitizeForSpeech(text) {
+  return (text || '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[*_`#>\[\]{}]/g, '')
+    .replace(/https?:\/\/\S+/g, 'bağlantı')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // Sesler yüklenince
@@ -1033,6 +1158,7 @@ setTimeout(() => {
   addLog('MICRON sistemi başlatıldı');
   addLog('Ollama bağlantısı kontrol ediliyor...');
 }, 500);
+loadConfig();
 </script>
 </body>
 </html>

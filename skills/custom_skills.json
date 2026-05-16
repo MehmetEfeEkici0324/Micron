@@ -19,6 +19,13 @@
     "figma": "https://figma.com",
     "vercel": "https://vercel.com",
     "heroku": "https://heroku.com"
+    ,"drive": "https://drive.google.com"
+    ,"maps": "https://maps.google.com"
+    ,"translate": "https://translate.google.com"
+    ,"takvim": "https://calendar.google.com"
+    ,"canva": "https://canva.com"
+    ,"trello": "https://trello.com"
+    ,"discord": "https://discord.com/app"
   },
   "desktop_apps": {
     "vscode": "code",
@@ -30,13 +37,25 @@
     "firefox": "firefox",
     "terminal": "x-terminal-emulator",
     "dosya yöneticisi": "nautilus",
-    "hesap makinesi": "gnome-calculator"
+    "hesap makinesi": "gnome-calculator",
+    "edge": "start msedge",
+    "not defteri": "notepad",
+    "powershell": "start powershell",
+    "cmd": "start cmd",
+    "opencode": "opencode"
   },
   "custom_commands": {
     "sistemi güncelle": "sudo apt update && sudo apt upgrade -y",
     "disk durumu": "df -h",
     "bellek kullanımı": "free -h",
     "ip adresim": "curl -s ifconfig.me",
-    "çalışan processler": "ps aux | head -20"
+    "çalışan processler": "ps aux | head -20",
+    "windows ip adresim": "ipconfig",
+    "wifi durumunu göster": "netsh wlan show interfaces",
+    "python surumu": "python --version",
+    "python sürümü": "python --version",
+    "ollama modelleri": "ollama list",
+    "ollama servis baslat": "ollama serve",
+    "git durumu": "git status --short"
   }
 }

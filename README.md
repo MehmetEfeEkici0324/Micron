@@ -172,8 +172,33 @@ sudo apt install espeak-ng  # TTS için
 
 ## ⚙️ Özelleştirme
 
+Micron artık ana davranışını `config/settings.json` dosyasından okur. Model, Ollama adresi, wake word, ses dili, TTS hızı, komut zaman aşımı, özel siteler, özel uygulamalar ve proje arama klasörleri buradan yönetilir.
+
+Önemli ayarlar:
+```json
+{
+  "model": "llama3.2:1b",
+  "ollama_url": "http://localhost:11434",
+  "ollama_autostart": true,
+  "wake_word": "micron",
+  "language": "tr-TR",
+  "response_language": "tr-TR",
+  "default_browser": "chrome",
+  "speech_command_without_wake_word": true,
+  "voice_rate": 0.86,
+  "voice_pitch": 0.72,
+  "preferred_voice_keywords": ["male", "erkek", "tolga", "microsoft", "tr"],
+  "allow_shell_commands": true,
+  "project_roots": ["C:/Users/MDH/Desktop", "C:/Users/MDH/Documents"]
+}
+```
+
+`ollama_autostart` açık olduğunda Micron, Ollama API'ye ulaşamazsa `ollama serve` başlatmayı dener. `model` değeri `ollama list` çıktısındaki model adıyla aynı olmalıdır.
+
+`language` ses tanıma ve TTS dilidir. `response_language` Micron'un cevap dilidir. `default_browser` web komutlarının hangi tarayıcıda açılacağını belirler.
+
 ### Yeni Site Ekle
-`skills/custom_skills.json` dosyasını düzenle:
+`config/settings.json` içindeki `custom_sites` alanına veya `skills/custom_skills.json` dosyasına ekle:
 ```json
 {
   "web_sites": {
@@ -207,9 +232,37 @@ sudo apt install espeak-ng  # TTS için
 Arayüzden açılır menüyü kullanın, ya da `config/settings.json`:
 ```json
 {
-  "model": "llama3.1"
+  "model": "llama3.2:1b"
 }
 ```
+
+### Ses Algılama
+Ses komutları için Chrome/Edge kullanın. Sürekli dinleme açıkken Micron wake word olmadan da komut alabilir; bunu kapatmak isterseniz:
+```json
+{
+  "speech_command_without_wake_word": false
+}
+```
+
+Micron sesli cevap verirken emoji, markdown işaretleri ve uzun URL'ler temizlenir; bu yüzden TTS emojileri okumaz.
+
+### Öğrenilen Komutlar
+Micron'a yeni bir komutu kalıcı olarak öğretebilirsiniz:
+```text
+"ders modu komutunu sisteme ekle, youtube lo-fi aç"
+"haber modu dediğimde google'da son dakika haberleri ara"
+```
+
+Sonra sadece şunu yazmanız veya söylemeniz yeterlidir:
+```text
+"ders modu"
+"haber modu"
+```
+
+Bu kayıtlar `config/settings.json` içindeki `learned_commands` alanında saklanır.
+
+### Ses Tanıma Network Hatası
+Tarayıcıdaki Web Speech API çoğu sistemde internet üzerinden çalışır. `Ses hatası: network` görürseniz bu Micron/Ollama hatası değil, Chrome/Edge'in ses tanıma servisine ulaşamamasıdır. Yazılı komutlar ve öğrenilen komutlar çalışmaya devam eder.
 
 ---
 

@@ -90,19 +90,52 @@ def pull_model(model="llama3"):
 
 def create_config():
     config = {
+        "assistant_name": "MICRON",
         "model": "llama3",
+        "ollama_url": "http://localhost:11434",
+        "ollama_autostart": True,
         "wake_word": "micron",
         "language": "tr-TR",
         "voice_enabled": True,
+        "voice_rate": 0.86,
+        "voice_pitch": 0.72,
+        "preferred_voice_keywords": ["male", "erkek", "tolga", "microsoft", "tr"],
+        "speech_continuous": True,
+        "speech_interim_results": True,
+        "speech_max_alternatives": 3,
+        "speech_command_without_wake_word": True,
+        "server_host": "0.0.0.0",
         "server_port": 5000,
         "auto_start_browser": True,
+        "default_browser": "chrome",
+        "response_language": "tr-TR",
+        "command_timeout_seconds": 30,
+        "allow_shell_commands": True,
         "custom_apps": {},
-        "custom_sites": {}
+        "custom_sites": {},
+        "learned_commands": {},
+        "project_roots": [
+            os.path.join(os.path.expanduser("~"), "Desktop"),
+            os.path.join(os.path.expanduser("~"), "Documents")
+        ],
+        "blocked_shell_patterns": [
+            "rm -rf",
+            "del /f",
+            "format ",
+            "shutdown",
+            "reboot",
+            "git reset --hard"
+        ]
     }
     
     config_path = os.path.join(os.path.dirname(__file__), "config", "settings.json")
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
     
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            current = json.load(f)
+        config.update(current)
+
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
     
@@ -152,7 +185,7 @@ start "Ollama" /min ollama serve
 timeout /t 2 /nobreak > nul
 start "MICRON Server" {sys.executable} server.py
 timeout /t 2 /nobreak > nul
-start http://localhost:5000
+start "Chrome" chrome http://localhost:5000
 echo MICRON hazir!
 pause
 """

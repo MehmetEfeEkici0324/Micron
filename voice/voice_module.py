@@ -8,12 +8,18 @@ import queue
 import time
 import sys
 import os
+import re
 
 
 class VoiceModule:
-    def __init__(self, wake_word="micron", language="tr-TR"):
+    def __init__(self, wake_word="micron", language="tr-TR", energy_threshold=250, pause_threshold=0.7, phrase_time_limit=12, voice_rate=155, voice_volume=0.95):
         self.wake_word = wake_word.lower()
         self.language = language
+        self.energy_threshold = energy_threshold
+        self.pause_threshold = pause_threshold
+        self.phrase_time_limit = phrase_time_limit
+        self.voice_rate = voice_rate
+        self.voice_volume = voice_volume
         self.is_listening = False
         self.command_queue = queue.Queue()
         self.tts_engine = None
@@ -24,15 +30,14 @@ class VoiceModule:
         try:
             import pyttsx3
             self.tts_engine = pyttsx3.init()
-            self.tts_engine.setProperty("rate", 180)
-            self.tts_engine.setProperty("volume", 0.9)
+            self.tts_engine.setProperty("rate", self.voice_rate)
+            self.tts_engine.setProperty("volume", self.voice_volume)
             
             # Türkçe ses seç
             voices = self.tts_engine.getProperty("voices")
-            for voice in voices:
-                if "tr" in voice.id.lower() or "turkish" in voice.name.lower():
-                    self.tts_engine.setProperty("voice", voice.id)
-                    break
+            best_voice = self._select_jarvis_voice(voices)
+            if best_voice:
+                self.tts_engine.setProperty("voice", best_voice.id)
             
             print("✅ TTS motoru başlatıldı")
         except ImportError:
@@ -42,6 +47,7 @@ class VoiceModule:
     
     def speak(self, text):
         """Metni sesli söyle"""
+        text = self._sanitize_for_speech(text)
         print(f"🔊 MICRON: {text}")
         
         if self.tts_engine:
@@ -69,13 +75,15 @@ class VoiceModule:
         try:
             import speech_recognition as sr
             r = sr.Recognizer()
-            r.energy_threshold = 300
+            r.energy_threshold = self.energy_threshold
             r.dynamic_energy_threshold = True
+            r.pause_threshold = self.pause_threshold
+            r.non_speaking_duration = 0.4
             
             with sr.Microphone() as source:
                 print("🎤 Dinleniyor...")
-                r.adjust_for_ambient_noise(source, duration=0.5)
-                audio = r.listen(source, timeout=5, phrase_time_limit=10)
+                r.adjust_for_ambient_noise(source, duration=1.0)
+                audio = r.listen(source, timeout=7, phrase_time_limit=self.phrase_time_limit)
                 
             text = r.recognize_google(audio, language=self.language)
             print(f"🗣️  Duyulan: {text}")
@@ -87,6 +95,31 @@ class VoiceModule:
         except Exception as e:
             print(f"Ses tanıma hatası: {e}")
             return None
+    
+    def _sanitize_for_speech(self, text):
+        """TTS motorunun emoji ve markdown karakterlerini okumasini engeller."""
+        text = str(text or "")
+        text = re.sub(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]", "", text)
+        text = re.sub(r"[*_`#>\[\]{}]", "", text)
+        text = re.sub(r"https?://\S+", "bağlantı", text)
+        return re.sub(r"\s+", " ", text).strip()
+    
+    def _select_jarvis_voice(self, voices):
+        """Mevcut sistem sesleri icinden en tok/Turkce adaya oncelik verir."""
+        if not voices:
+            return None
+        keywords = ["tr", "turkish", "male", "erkek", "tolga", "microsoft"]
+        scored = []
+        for voice in voices:
+            haystack = f"{voice.id} {voice.name}".lower()
+            score = sum(1 for keyword in keywords if keyword in haystack)
+            if "male" in haystack or "erkek" in haystack or "tolga" in haystack:
+                score += 3
+            if "tr" in haystack or "turkish" in haystack:
+                score += 4
+            scored.append((score, voice))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        return scored[0][1]
     
     def start_continuous_listening(self, callback):
         """Sürekli arka planda dinle, wake word algılayınca callback çağır"""

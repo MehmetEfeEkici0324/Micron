@@ -1,10 +1,95 @@
 {
-  "model": "llama3",
-  "wake_word": "micron",
+  "assistant_name": "MICRON",
+  "model": "llama3.2:1b",
+  "ollama_url": "http://localhost:11434",
+  "ollama_autostart": true,
   "language": "tr-TR",
+  "wake_word": "micron",
   "voice_enabled": true,
+  "voice_rate": 0.86,
+  "voice_pitch": 0.72,
+  "preferred_voice_keywords": [
+    "male",
+    "erkek",
+    "tolga",
+    "microsoft",
+    "tr"
+  ],
+  "speech_continuous": true,
+  "speech_interim_results": true,
+  "speech_max_alternatives": 3,
+  "speech_command_without_wake_word": true,
+  "server_host": "0.0.0.0",
   "server_port": 5000,
   "auto_start_browser": true,
-  "custom_apps": {},
-  "custom_sites": {}
+  "default_browser": "chrome",
+  "response_language": "tr-TR",
+  "command_timeout_seconds": 30,
+  "allow_shell_commands": true,
+  "custom_sites": {
+    "google": "https://google.com",
+    "youtube": "https://youtube.com",
+    "github": "https://github.com",
+    "gmail": "https://gmail.com",
+    "chatgpt": "https://chat.openai.com",
+    "claude": "https://claude.ai",
+    "whatsapp": "https://web.whatsapp.com"
+  },
+  "custom_apps": {
+    "edge": "start msedge",
+    "not defteri": "notepad",
+    "powershell": "start powershell",
+    "opencode": "opencode"
+  },
+  "learned_commands": {
+    "ders çalişma modu": {
+      "task": "youtube lofi müzik videolarını aç",
+      "command": {
+        "action": "open_web",
+        "target": "https://www.youtube.com/results?search_query=lofi",
+        "response": "YouTube'da lofi açılıyor."
+      },
+      "created_at": "2026-05-16T22:55:56"
+    },
+    "sana her sarot projesini aç": {
+      "task": "yeni bu bu kodu iptal et bu kodu iptal et",
+      "command": {
+        "action": "search",
+        "target": "yeni bu bu kodu iptal et bu kodu iptal et",
+        "response": "yeni bu bu kodu iptal et bu kodu iptal et aranıyor."
+      },
+      "created_at": "2026-05-16T23:08:41"
+    },
+    "her sarolt projesini aç": {
+      "task": "open koddan sarot proje kismini aç",
+      "command": {
+        "action": "search",
+        "target": "open koddan sarot proje kismini aç",
+        "response": "open koddan sarot proje kismini aç aranıyor."
+      },
+      "created_at": "2026-05-16T23:09:02"
+    },
+    "her pano ayarlarini aç": {
+      "task": "bilgisayarlarindan pano ayarlarini aç",
+      "command": {
+        "action": "open_web",
+        "target": "https://www.google.com",
+        "response": "Google'da arama yapın."
+      },
+      "created_at": "2026-05-16T23:09:48"
+    }
+  },
+  "project_roots": [
+    "C:/Users/MDH/Desktop",
+    "C:/Users/MDH/Documents",
+    "C:/Users/MDH/Desktop/Micron"
+  ],
+  "blocked_shell_patterns": [
+    "rm -rf",
+    "del /f",
+    "format ",
+    "shutdown",
+    "reboot",
+    "git reset --hard"
+  ]
 }
