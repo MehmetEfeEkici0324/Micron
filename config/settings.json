@@ -1,0 +1,10 @@
+{
+  "model": "llama3",
+  "wake_word": "micron",
+  "language": "tr-TR",
+  "voice_enabled": true,
+  "server_port": 5000,
+  "auto_start_browser": true,
+  "custom_apps": {},
+  "custom_sites": {}
+}
