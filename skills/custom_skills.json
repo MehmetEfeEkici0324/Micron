@@ -1,0 +1,42 @@
+{
+  "web_sites": {
+    "google": "https://google.com",
+    "youtube": "https://youtube.com",
+    "github": "https://github.com",
+    "gmail": "https://gmail.com",
+    "whatsapp": "https://web.whatsapp.com",
+    "twitter": "https://twitter.com",
+    "instagram": "https://instagram.com",
+    "linkedin": "https://linkedin.com",
+    "reddit": "https://reddit.com",
+    "netflix": "https://netflix.com",
+    "spotify": "https://open.spotify.com",
+    "chatgpt": "https://chat.openai.com",
+    "claude": "https://claude.ai",
+    "stackoverflow": "https://stackoverflow.com",
+    "medium": "https://medium.com",
+    "notion": "https://notion.so",
+    "figma": "https://figma.com",
+    "vercel": "https://vercel.com",
+    "heroku": "https://heroku.com"
+  },
+  "desktop_apps": {
+    "vscode": "code",
+    "vs code": "code",
+    "visual studio code": "code",
+    "cursor": "cursor",
+    "sublime": "subl",
+    "chrome": "google-chrome",
+    "firefox": "firefox",
+    "terminal": "x-terminal-emulator",
+    "dosya yöneticisi": "nautilus",
+    "hesap makinesi": "gnome-calculator"
+  },
+  "custom_commands": {
+    "sistemi güncelle": "sudo apt update && sudo apt upgrade -y",
+    "disk durumu": "df -h",
+    "bellek kullanımı": "free -h",
+    "ip adresim": "curl -s ifconfig.me",
+    "çalışan processler": "ps aux | head -20"
+  }
+}
